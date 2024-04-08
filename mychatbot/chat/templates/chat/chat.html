@@ -1,33 +1,143 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <title>Chatbot</title>
+<meta charset="UTF-8">
+<title>聊天机器人示例</title>
+<style>
+    .user-message {
+        text-align: right;
+        background-color: #dcdcdc;
+        margin: 5px;
+        padding: 5px;
+        border-radius: 10px;
+    }
+
+    .bot-message {
+        text-align: left;
+        background-color: #afeeee;
+        margin: 5px;
+        padding: 5px;
+        border-radius: 10px;
+    }
+
+    .chat-history {
+        border: 1px solid #000;
+        overflow-y: scroll;
+        height: 300px; /* 根据需要调整高度 */
+        margin-bottom: 10px;
+    }
+
+    #queryText {
+        width: 100%;
+        height: 50px;
+        margin-bottom: 5px;
+    }
+
+    #sendButton {
+        width: 100%;
+        height: 50px;
+    }
+</style>
 </head>
 <body>
-    <input type="text" id="userInput" placeholder="Say something...">
-    <button onclick="sendMessage()">Send</button>
-    <div id="response"></div>
 
-    <script>
+<div id="chatHistory" class="chat-history"></div>
+<textarea id="queryText" placeholder="请输入你的消息"></textarea>
+<button id="sendButton">发送</button>
+
+<script>
+
+        // 在这里插入前端JavaScript代码，该代码如下：
+        var currentSessionId = '';
+
+        function updateChatHistory(userMessage, botReplies) {//更新聊天记录
+            var chatHistory = document.getElementById('chatHistory');//获取聊天记录的元素
+            if (userMessage) {//如果用户消息不为空
+                var userDiv = document.createElement('div');//创建用户消息的div元素
+                userDiv.textContent = '你: ' + userMessage;//设置文本内容
+                userDiv.className = 'user-message';//设置类名
+                chatHistory.appendChild(userDiv);//添加到聊天记录元素中
+            }//创建用户消息的div元素，设置文本内容，设置类名，添加到聊天记录元素中
+            botReplies.forEach(botMessage => {//遍历机器人回复
+                var botDiv = document.createElement('div');//创建机器人消息的div元素
+                botDiv.textContent = '机器人: ' + botMessage;//设置文本内容
+                botDiv.className = 'bot-message';//设置类名
+                chatHistory.appendChild(botDiv);//添加到聊天记录元素中
+            });
+            chatHistory.scrollTop = chatHistory.scrollHeight;//滚动到底部
+        }
+
         function sendMessage() {
-            var userInput = document.getElementById('userInput').value;
-            fetch('/chat/', {
+            var queryText = document.getElementById('queryText').value;//获取用户输入的消息
+            updateChatHistory(queryText, []);//更新聊天记录
+            fetch('/chat_with_baidu_unit/', {//发送请求
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
                 },
-                body: 'text=' + encodeURIComponent(userInput)
+                body: JSON.stringify({
+                    queryText: queryText,
+                    sessionId: currentSessionId
+                })
             })
             .then(response => response.json())
-            .then(data => {
-                console.log(data);
-                document.getElementById('response').innerText = data.response;
+            .then(data => {//处理响应
+                if (data && data.data) {
+                    if (data.data.sessionId) {
+                        currentSessionId = data.data.sessionId;
+                    }
+                    var botReplies = data.data.answer
+                        .filter(a => a.reply !== null)
+                        .map(a => a.reply.text);
+                    updateChatHistory(null, botReplies);
+                } else {
+                    updateChatHistory(null, ['收到意外的响应结构。']);
+                }
             })
-            .catch((error) => {
-                console.error('Error:', error);
+            .catch(error => {
+                updateChatHistory(null, ['请求过程中出现错误。']);
+                console.error('Error during fetch:', error);
             });
+
+            document.getElementById('queryText').value = '';
         }
-    </script>
+
+        document.getElementById('sendButton').addEventListener('click', sendMessage);
+
+        function getCookie(name) {//获取cookie
+            var cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                var cookies = document.cookie.split(';');
+                for (var i = 0; i < cookies.length; i++) {
+                    var cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+
+        // ...
+
+        function addDefaultBotMessage() {
+            var defaultMessages = ['尊敬的用户您好，很高兴为您服务！我是电力AI小助理。您可以对我说查停电信息'];
+            updateChatHistory(null, defaultMessages);
+        }
+
+        // ...
+
+        document.addEventListener('DOMContentLoaded', function() {
+            addDefaultBotMessage(); // 页面载入完成后添加默认机器人消息
+            document.getElementById('sendButton').addEventListener('click', sendMessage);
+        });
+
+        // ...
+
+
+</script>
+
 </body>
 </html>
