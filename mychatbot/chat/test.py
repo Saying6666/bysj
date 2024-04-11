@@ -1,29 +1,25 @@
 import requests
+import json
 
-# 替换为你实际的 API token（确保没有非 ASCII 字符）
-api_token = '9bc7d121-cde4-4437-aa3a-d0d16786a18e'
-
-# API 请求的地址
-api_url = 'https://keyue.cloud.baidu.com/online/core/v5/stream/query'
-
-# 请求的头部，确保 token 和 Content-Type 没有非 ASCII 字符
+# token卡直接替换key为你的key
+OPENAI_API_KEY = 'sk-VKm5OwuNNepyGbc9607865734b514e2dA4Bd2dFbDaA5230d'
 headers = {
-    'token': api_token.encode('ascii', 'ignore').decode('ascii'),
-    'Content-Type': 'application/json'
+    "Authorization": f"Bearer {OPENAI_API_KEY}",
+    "Content-Type": "application/json"
 }
 
-# 要发送到 API 的数据，没有非 ASCII 字符
-data = {
-    "queryText": "你好",
-    "sessionId": "ecb95fcc-0e49-4ab0-b026-c20a8aac1585"
-}
+data = {'model': 'gpt-4', 'messages': [{'role': 'user', 'content': '鲁迅为什么暴打周树人'}],'stream':True}
 
-try:
-    # 使用 POST 方法发送请求
-    response = requests.post(api_url, headers=headers, json=data)
-    response.encoding = 'utf-8'  # 添加这行代码
+# 次数卡直接替换接口为你的卡密
+response = requests.post('https://api.zhtec.xyz/test/yQvEJRbpen.php', headers=headers, data=json.dumps(data), stream=True)
 
-    # 输出响应内容
-    print(response.text)
-except UnicodeEncodeError as e:
-    print('Encoding Error:', e)
+for chunk in response.iter_lines():
+    if chunk:
+        decoded_chunk = chunk.decode('utf-8')
+        if decoded_chunk.startswith('data:'):
+            # Remove the 'data: ' prefix and parse the JSON object
+            try:
+                parsed_chunk = json.loads(decoded_chunk[5:])
+                print(parsed_chunk['choices'][0]['delta']['content'], end='')
+            except:
+                pass

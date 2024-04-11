@@ -26,7 +26,14 @@
         height: 300px; /* 根据需要调整高度 */
         margin-bottom: 10px;
     }
-
+    .sentiment-analysis {
+    text-align: center;
+    background-color: #ffcccb; /* 淡红色背景 */
+    font-style: italic;
+    margin: 10px 0;
+    padding: 5px;
+    border-radius: 10px;
+}
     #queryText {
         width: 100%;
         height: 50px;
@@ -44,12 +51,31 @@
 <div id="chatHistory" class="chat-history"></div>
 <textarea id="queryText" placeholder="请输入你的消息"></textarea>
 <button id="sendButton">发送</button>
+<!-- 情感分析结果区域 -->
+<!-- GPT模型选择 -->
+<label for="modelSelect">选择GPT模型:</label>
+<select id="modelSelect">
+    
+    <option value="gpt-3.5-turbo-16k">GPT-3.5 Turbo 16K</option>
+    <!-- 添加模型gpt-4，gpt-4-1106-preview ，gpt-4-turbo-preview，claude-3-haiku-20240307，claude-3-sonnet-20240229，claude-3-opus-20240229-->
+    <option value="gpt-4">GPT-4</option>
+    <option value="gpt-4-1106-preview">GPT-4-1106-preview</option>
+    <option value="gpt-4-turbo-preview">GPT-4-turbo-preview</option>
+    <option value="claude-3-haiku-20240307">claude-3-haiku-20240307</option>
+    <option value="claude-3-sonnet-20240229">claude-3-sonnet-20240229</option>
+    <option value="claude-3-opus-20240229">claude-3-opus-20240229</option>
+
+    <!-- 在这里添加其他模型选项 -->
+</select>
+<div id="sentimentResult" style="display:none;" class="sentiment-analysis">
+    <p id="sentimentText">情感分析结果: 无</p>
+</div>
 
 <script>
 
         // 在这里插入前端JavaScript代码，该代码如下：
         var currentSessionId = '';
-
+        var conversationHistory = []; // 全局变量保存对话历史
         function updateChatHistory(userMessage, botReplies) {//更新聊天记录
             var chatHistory = document.getElementById('chatHistory');//获取聊天记录的元素
             if (userMessage) {//如果用户消息不为空
@@ -57,18 +83,21 @@
                 userDiv.textContent = '你: ' + userMessage;//设置文本内容
                 userDiv.className = 'user-message';//设置类名
                 chatHistory.appendChild(userDiv);//添加到聊天记录元素中
+                conversationHistory.push({role:'user', content:userMessage})
             }//创建用户消息的div元素，设置文本内容，设置类名，添加到聊天记录元素中
             botReplies.forEach(botMessage => {//遍历机器人回复
                 var botDiv = document.createElement('div');//创建机器人消息的div元素
                 botDiv.textContent = '机器人: ' + botMessage;//设置文本内容
                 botDiv.className = 'bot-message';//设置类名
                 chatHistory.appendChild(botDiv);//添加到聊天记录元素中
+                conversationHistory.push({role:'bot', content:botMessage})
             });
             chatHistory.scrollTop = chatHistory.scrollHeight;//滚动到底部
         }
 
         function sendMessage() {
             var queryText = document.getElementById('queryText').value;//获取用户输入的消息
+            
             updateChatHistory(queryText, []);//更新聊天记录
             fetch('/chat_with_baidu_unit/', {//发送请求
                 method: 'POST',
@@ -90,7 +119,11 @@
                     var botReplies = data.data.answer
                         .filter(a => a.reply !== null)
                         .map(a => a.reply.text);
+                    //更新聊天记录
                     updateChatHistory(null, botReplies);
+
+                    //将整段对话发给gpt进行情感分析
+                    sendToGptAnalysis();
                 } else {
                     updateChatHistory(null, ['收到意外的响应结构。']);
                 }
@@ -99,7 +132,9 @@
                 updateChatHistory(null, ['请求过程中出现错误。']);
                 console.error('Error during fetch:', error);
             });
+            
 
+            
             document.getElementById('queryText').value = '';
         }
 
@@ -135,6 +170,41 @@
         });
 
         // ...
+        
+        
+        function sendToGptAnalysis() {
+            var selectedModel = document.getElementById('modelSelect').value; // 获取选中的模型
+            fetch('/chat_with_gpt/', { // 假设这是发送给GPT进行情感分析的后端URL
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    // 添加其他需要的headers
+                },
+                body: JSON.stringify({
+                    message: conversationHistory, // 假设后端接收的字段是message
+                    selectedModel: selectedModel // 传递选中的模型
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('GPT 情感分析结果:', data);
+                if (data.response) {
+                    displayGptSentimentAnalysis(data.response); // 显示情感分析结果
+                }
+            })
+            .catch(error => {
+                console.error('GPT 情感分析请求失败:', error);
+            });
+        }
+
+
+        
+        function displayGptSentimentAnalysis(sentiment) {
+            var sentimentResultDiv = document.getElementById('sentimentResult');
+            var sentimentTextP = document.getElementById('sentimentText');
+            sentimentTextP.textContent = '情感分析结果: ' + sentiment;
+            sentimentResultDiv.style.display = 'block'; // 显示情感分析结果区域
+        }
 
 
 </script>
